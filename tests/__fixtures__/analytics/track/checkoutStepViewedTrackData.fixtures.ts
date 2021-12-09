@@ -16,9 +16,12 @@ export default {
         brand: 'Just A T-Shirt',
         variant: 'Black',
         size: 'L',
+        discountValue: 6,
         price: 19,
+        priceWithoutDiscount: 25,
         quantity: 1,
       },
     ],
   },
 };
+

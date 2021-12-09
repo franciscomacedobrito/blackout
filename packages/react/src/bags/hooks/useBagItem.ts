@@ -6,7 +6,7 @@
  * @category Bags
  * @subcategory Hooks
  */
-import {
+ import {
   addBagItem as addBagItemAction,
   getBagItem,
   getBagItemError,
@@ -15,10 +15,7 @@ import {
   removeBagItem as removeBagItemAction,
   updateBagItem as updateBagItemAction,
 } from '@farfetch/blackout-redux/bags';
-import {
-  buildBagItem,
-  generateBagItemHash,
-} from '@farfetch/blackout-redux/bags/utils';
+import { buildBagItem, generateBagItemHash } from '@farfetch/blackout-redux/bags/utils';
 import { shallowEqual, useSelector } from 'react-redux';
 import { useAction } from '../../helpers';
 import type {
@@ -90,12 +87,14 @@ const useBagItem: UseBagItem = bagItemId => {
    * @param {object} [item.size=productSize] - Size of the product to
    * add/update. Defaults to the size of the bag item that instantiated the
    * hook.
+   * @param {string} [item.from] - Provenience of action.
    */
   const handleAddOrUpdateItem: HandleAddOrUpdateItemType = async ({
     customAttributes = bagItem?.customAttributes,
     product = bagItem?.product,
     quantity = bagItem?.quantity,
     size = productSize,
+    from,
   }) => {
     let quantityToHandle = quantity;
 
@@ -120,6 +119,7 @@ const useBagItem: UseBagItem = bagItemId => {
         product,
         quantity: quantityToAdd,
         size,
+        from,
       });
       // Checks if the item we want to add is already in bag
       // by comparing the bag items' hash
@@ -177,27 +177,33 @@ const useBagItem: UseBagItem = bagItemId => {
    * @function handleQuantityChange
    *
    * @param {number} newQuantity - Quantity to update the bag item into.
+   * @param {string} [from] - Provenience of action.
    */
-  const handleQuantityChange: HandleQuantityChangeType = newQuantity => {
+  const handleQuantityChange: HandleQuantityChangeType = (
+    newQuantity,
+    from,
+  ) => {
+    const quantityToHandle = Number(newQuantity);
     // If a bag item quantity is decreased, there's no need to make
     // any further verifications and update the bag item can proceed
-    if (newQuantity < bagItem.quantity) {
+    if (quantityToHandle < bagItem.quantity) {
       updateBagItem(bagItem.id, {
         merchantId: bagItem.merchant,
         productId: bagItem.product?.id,
-        quantity: newQuantity,
+        quantity: quantityToHandle,
         scale: bagItem.size.scale,
         size: bagItem.size.id,
         oldQuantity: bagItem.quantity,
         oldSize: bagItem.size,
+        from,
       });
 
       return;
     }
 
-    const quantityToAdd = newQuantity - bagItem.quantity;
+    const quantityToAdd = quantityToHandle - bagItem.quantity;
 
-    handleAddOrUpdateItem({ quantity: quantityToAdd });
+    handleAddOrUpdateItem({ quantity: quantityToAdd, from });
   };
 
   /**
@@ -215,8 +221,9 @@ const useBagItem: UseBagItem = bagItemId => {
    * @function handleSizeChange
    *
    * @param {number} newSize - Size to update the bag item into.
+   * @param {string} [from] - Provenience of action.
    */
-  const handleSizeChange: HandleSizeChangeType = async newSize => {
+  const handleSizeChange: HandleSizeChangeType = async (newSize, from) => {
     // This extra logic is due to the fact that when changing sizes,
     // the verification to see if the bag item is already in bag
     // will always be false, thus never updating.
@@ -229,6 +236,7 @@ const useBagItem: UseBagItem = bagItemId => {
       productId: bagItem.product?.id,
       scale: size?.scale,
       size: size?.id,
+      from,
     };
 
     // Checks if there is a merchant for that new size that is the
@@ -261,13 +269,14 @@ const useBagItem: UseBagItem = bagItemId => {
         quantityToHandle -= merchantQuantity;
       }
     } else {
-      await deleteBagItem(bagItem.id);
+      await deleteBagItem(bagItem.id, from);
     }
 
     if (quantityToHandle) {
       handleAddOrUpdateItem({
         quantity: quantityToHandle,
         size,
+        from,
       });
     }
   };
@@ -287,8 +296,13 @@ const useBagItem: UseBagItem = bagItemId => {
    *
    * @param {number} newSizeId - Size to update the bag item into.
    * @param {number} newQty - Quantity to update the bag item into.
+   * @param {string} [from] - Provenience of action.
    */
-  const handleFullUpdate: HandleFullUpdateType = async (newSizeId, newQty) => {
+  const handleFullUpdate: HandleFullUpdateType = async (
+    newSizeId,
+    newQty,
+    from,
+  ) => {
     // In this case, we really want to update the bagItem,
     // so we force it on the first time.
     let didFirstUpdate = false;
@@ -316,6 +330,7 @@ const useBagItem: UseBagItem = bagItemId => {
         quantity: quantityToManage,
         product: bagItem.product,
         size,
+        from,
       });
 
       if (!didFirstUpdate) {
@@ -350,9 +365,11 @@ const useBagItem: UseBagItem = bagItemId => {
    * hook.</small></i>.
    *
    * @function handleDeleteBagItem
+   *
+   * @param {string} [from] - Provenience of action.
    */
-  const handleDeleteBagItem: HandleDeleteBagItemType = () => {
-    deleteBagItem(bagItem.id);
+  const handleDeleteBagItem: HandleDeleteBagItemType = from => {
+    deleteBagItem(bagItem.id, { from });
   };
 
   return {

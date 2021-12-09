@@ -17,7 +17,7 @@ class Integration {
    * @param {object} loadData              - Analytics's load event data.
    * @param {object} strippedDownAnalytics - Analytics instance stripped down with only helpers.
    */
-  constructor(options, loadData, strippedDownAnalytics) {
+  constructor(options = {}, loadData, strippedDownAnalytics) {
     this.options = options;
     this.loadData = loadData;
     this.strippedDownAnalytics = strippedDownAnalytics;

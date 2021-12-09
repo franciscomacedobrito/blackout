@@ -9,6 +9,7 @@ import bagItemSchema from '../../../entities/schemas/bagItem';
 import type {
   Bag,
   DeleteBagItem,
+  PatchBagItemData,
   Query,
 } from '@farfetch/blackout-client/bags/types';
 import type { Dispatch } from 'redux';
@@ -44,58 +45,61 @@ import type { GetOptionsArgument, StoreState } from '../../../types';
  *
  * @returns {RemoveBagItemThunkFactory} Thunk factory.
  */
-const removeBagItemFactory =
-  (deleteBagItem: DeleteBagItem) =>
-  (bagItemId: number, query?: Query, config?: Record<string, unknown>) =>
-  async (
-    dispatch: Dispatch,
-    getState: () => StoreState,
-    {
-      getOptions = arg => ({ productImgQueryParam: arg.productImgQueryParam }),
-    }: GetOptionsArgument,
-  ): Promise<Bag> => {
-    const state = getState();
-    const bagId = getBagId(state);
+const removeBagItemFactory = (deleteBagItem: DeleteBagItem) => (
+  bagItemId: number,
+  data?: PatchBagItemData,
+  query?: Query,
+  config?: Record<string, unknown>,
+) => async (
+  dispatch: Dispatch,
+  getState: () => StoreState,
+  {
+    getOptions = arg => ({ productImgQueryParam: arg.productImgQueryParam }),
+  }: GetOptionsArgument,
+): Promise<Bag> => {
+  const state = getState();
+  const bagId = getBagId(state);
+
+  dispatch({
+    meta: {
+      bagId,
+      bagItemId,
+    },
+    type: REMOVE_BAG_ITEM_REQUEST,
+  });
+
+  try {
+    const result = await deleteBagItem(bagId, bagItemId, query, config);
+    const { productImgQueryParam } = getOptions(getState);
+    const newItems = result.items.map(item => ({
+      ...item,
+      productImgQueryParam,
+    }));
+    const normalizedBag = normalize(
+      { ...result, items: newItems },
+      { items: [bagItemSchema] },
+    );
 
     dispatch({
+      payload: normalizedBag,
+      type: REMOVE_BAG_ITEM_SUCCESS,
       meta: {
+        ...data,
         bagId,
         bagItemId,
       },
-      type: REMOVE_BAG_ITEM_REQUEST,
     });
 
-    try {
-      const result = await deleteBagItem(bagId, bagItemId, query, config);
-      const { productImgQueryParam } = getOptions(getState);
-      const newItems = result.items.map(item => ({
-        ...item,
-        productImgQueryParam,
-      }));
-      const normalizedBag = normalize(
-        { ...result, items: newItems },
-        { items: [bagItemSchema] },
-      );
+    return result;
+  } catch (error) {
+    dispatch({
+      payload: { error },
+      meta: { bagId, bagItemId },
+      type: REMOVE_BAG_ITEM_FAILURE,
+    });
 
-      dispatch({
-        payload: normalizedBag,
-        type: REMOVE_BAG_ITEM_SUCCESS,
-        meta: {
-          bagId,
-          bagItemId,
-        },
-      });
-
-      return result;
-    } catch (error) {
-      dispatch({
-        payload: { error },
-        meta: { bagId, bagItemId },
-        type: REMOVE_BAG_ITEM_FAILURE,
-      });
-
-      throw error;
-    }
-  };
+    throw error;
+  }
+};
 
 export default removeBagItemFactory;

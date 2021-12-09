@@ -15,9 +15,12 @@ type BuildBagItemParams = {
   product: ProductEntity;
   quantity?: number;
   size: SizeAdapted | BagItemEntity['size'];
+  from?: string;
 };
 
-type BuildBagItem = (arg0: BuildBagItemParams) => {
+type BuildBagItem = (
+  arg0: BuildBagItemParams,
+) => {
   authCode?: string;
   customAttributes: CustomAttributesAdapted | string;
   merchantId?: MerchantEntity['id'];
@@ -25,6 +28,7 @@ type BuildBagItem = (arg0: BuildBagItemParams) => {
   quantity: number;
   scale: SizeAdapted['scale'];
   size: SizeAdapted['id'];
+  from?: string;
 };
 
 /**
@@ -37,9 +41,10 @@ type BuildBagItem = (arg0: BuildBagItemParams) => {
  * restrictions, for example).
  * @param {string} [data.customAttributes=''] - Custom attributes.
  * @param {number} [data.merchantId] - Specific merchant id.
- * @param {object} data.product - Product with all information.
+ * @param {object} [data.product] - Product with all information.
  * @param {number} [data.quantity=1] - Number of units.
- * @param {object} data.size - Size information.
+ * @param {object} [data.size] - Size information.
+ * @param {string} [data.from] - Provenience of action.
  *
  * @returns {object} Bag item data ready to perform add or update requests.
  */
@@ -50,6 +55,7 @@ const buildBagItem: BuildBagItem = ({
   product,
   quantity = 1,
   size,
+  from,
 }) => {
   const sizeHydrated = product.sizes?.find(({ id }) => id === size.id);
 
@@ -61,6 +67,7 @@ const buildBagItem: BuildBagItem = ({
     quantity,
     scale: size.scale,
     size: size.id,
+    from,
   };
 };
 
