@@ -2,9 +2,6 @@
  * Google Analytics 4 Integration.
  * Will load the google analytics 4 script and apply the ecommerce recommended events.
  *
- * TODO add link
- * See [the full documentation]{@link https://confluence link} for more information.
- *
  * @example <caption>Adding GA4 integration to analytics</caption>
  *
  * import analytics, { integrations } from '@farfetch/blackout-react/analytics';
@@ -18,6 +15,7 @@
  * @subcategory Integrations
  */
 import {
+  eventTypes as analyticsEventTypes,
   pageTypes as analyticsPageTypes,
   trackTypes as analyticsTrackTypes,
   integrations,
@@ -42,6 +40,7 @@ import {
 import { validateFields } from './validation/optionsValidator';
 import defaultEventCommands, {
   commandListSchema,
+  getProductUpdatedEventList,
   nonInteractionEvents,
 } from './commands';
 import defaultSchemaEventsMap from '../shared/validation/eventSchemas';
@@ -206,9 +205,34 @@ class GA4 extends integrations.Integration {
     switch (eventName) {
       case analyticsPageTypes.BAG:
       case analyticsPageTypes.SEARCH:
+      case analyticsPageTypes.WISHLIST:
         return await Promise.all([this.trackEvent(data), this.trackPage(data)]);
       default:
         return await this.trackPage(data);
+    }
+  }
+
+  /**
+   * Preprocess GA4 event to prevent multiple ga4 track events at once.
+   *
+   * @async
+   *
+   * @param {object} data - Event data provided by analytics.
+   *
+   * @returns {Promise} Promise that will resolve when the method finishes.
+   */
+  async processTrackEvent(data) {
+    const eventName = get(data, 'event');
+
+    switch (eventName) {
+      case analyticsEventTypes.PRODUCT_UPDATED:
+        return await Promise.all([
+          getProductUpdatedEventList(data).map(event =>
+            this.trackEvent({ ...data, event }),
+          ),
+        ]);
+      default:
+        return this.trackEvent(data);
     }
   }
 
@@ -229,7 +253,7 @@ class GA4 extends integrations.Integration {
         return await this.processPageEvent(data);
 
       case analyticsTrackTypes.TRACK:
-        return await this.trackEvent(data);
+        return await this.processTrackEvent(data);
       /* istanbul ignore next */
       default:
         /* istanbul ignore next */
@@ -634,7 +658,7 @@ class GA4 extends integrations.Integration {
       "    gtag('js', new Date());\n" +
       "    gtag('config', \"" +
       this.measurementId +
-      '");\n';
+      `,{ send_page_view: ${this.enableAutomaticPageViews} }");\n`;
 
     this.initializePromiseResolve = null;
     this.initializePromise = new Promise(resolve => {
@@ -647,14 +671,6 @@ class GA4 extends integrations.Integration {
 
     script.setAttribute('data-test', DATA_TEST_SELECTOR);
     script.async = true;
-  }
-
-  /**
-   * Method that will set gtag automatic page tracking if is desired option.
-   */
-  setAutomaticPageViewsProperty() {
-    this.enableAutomaticPageViews === true &&
-      window.gtag('config', this.measurementId, { send_page_view: true });
   }
 
   /**
@@ -671,8 +687,6 @@ class GA4 extends integrations.Integration {
       this.initializePromiseResolve();
       this.initializePromiseResolve = null;
     }
-
-    this.setAutomaticPageViewsProperty();
   };
 }
 
